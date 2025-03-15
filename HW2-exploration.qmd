@@ -1,0 +1,80 @@
+---
+title: "HW2 Exploration"
+subtitle: "Exploring rain data from Santa Barbara County"
+author: "Rachel Swick"
+date: last-modified 
+toc: true
+warning: false
+message: false
+eval: true
+echo: true
+code-fold: true
+fig-align: "center"
+---
+
+```{r}
+# Load libraries
+library(tidyverse)
+library(ggridges)
+library(usmap)
+library(mapdata)
+library(waffle)
+library(showtext)
+```
+
+```{r}
+# List of rain data file names
+files <- c("204dailys.csv", 
+           "208dailys.csv", 
+           "212dailys.csv", 
+           "218dailys.csv", 
+           "230dailys.csv", 
+           "233dailys.csv",
+           "234dailys.csv",
+           "256dailys.csv",
+           "332dailys.csv",
+           "380dailys.csv",
+           "421dailys.csv",
+           "436dailys.csv",
+           "439dailys.csv",
+           "440dailys.csv")
+
+# Initialize list to hold data names
+rain_dat <- list()
+
+# Read in SB rain gauge data
+for (file in seq_along(files)) {
+  df_name <- paste0("rain_", file)
+  rain_dat[[length(rain_dat) + 1]] <- assign(df_name, read_csv(here::here("data", files[[file]])))
+}
+```
+
+```{r}
+# Combine rain data into one data frame
+rain_data <- bind_rows(rain_dat)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
