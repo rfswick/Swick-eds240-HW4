@@ -3,6 +3,9 @@ title: "HW2 Exploration"
 subtitle: "Exploring rain data from Santa Barbara County"
 author: "Rachel Swick"
 date: last-modified 
+format:
+  html:
+    embed-resources: true
 toc: true
 warning: false
 message: false
@@ -11,7 +14,10 @@ echo: true
 code-fold: true
 fig-align: "center"
 ---
+## 2B. Import & wrangle data, then create exploratory data viz
 
+### Santa Barbara County Rain Data
+Available on the Santa Barbara County website under the Hydrology Section [SB Rain](https://www.countyofsb.org/2328/Daily-Rainfall-Data-XLS)
 ```{r}
 # Load libraries
 library(tidyverse)
@@ -44,25 +50,119 @@ rain_dat <- list()
 
 # Read in SB rain gauge data
 for (file in seq_along(files)) {
-  df_name <- paste0("rain_", file)
+  df_name <- paste0("rain", file)
   rain_dat[[length(rain_dat) + 1]] <- assign(df_name, read_csv(here::here("data", files[[file]])))
 }
 ```
 
 ```{r}
+#!! Ask Sam or Annie why this would not let me use the name of the dataframe to update it
+# Update columns for rain14 and rain5 
+rain_dat[[14]] <- rain14 %>% 
+  rename(`station id` = stationid, `water year` = wy, month = monthnum, `daily rain` = dailyrain)
+
+rain_dat[[5]] <- rain5 %>% 
+  rename(`station id` = stationid, `water year` = wy, month = monthnum, `daily rain` = dailyrain)
+
 # Combine rain data into one data frame
 rain_data <- bind_rows(rain_dat)
 ```
 
+### Explore the Code column
 
+```{r}
+# Clean data
+clean_rain <- rain_data %>% 
+  janitor::clean_names() %>% 
+  select(-c("x12", "x13"))
 
+# Data exploration
+print(unique(clean_rain$code))
+print(paste("Maximum rainfall in 1 day:", max(clean_rain$daily_rain)))
+print(paste("Minimum rainfall in 1 day:", min(clean_rain$daily_rain)))
+```
 
+```{r}
+# Average rain event amounts at different stations
+station_rain <- clean_rain %>% 
+  group_by(station_name) %>% 
+  summarise(average_rain = mean(daily_rain))
+```
 
+### Can we see different rain fall patterns at different stations? Does it rain more at one station than others?
 
+```{r}
+clean_rain %>%
+  group_by(year, station_name) %>%
+  summarise(rain_total = sum(daily_rain)) %>% 
+  ggplot(aes(x = year, y = rain_total, by = station_name)) +
+  geom_line(color = "blue") +
+  gghighlight::gghighlight(station_name == "San Marcos Pass")
+    
+```
+### On days that it rains, how much rain falls on average?
 
+```{r}
+clean_rain %>%
+  group_by(year) %>%
+  summarise(rain_total = mean(daily_rain)) %>%
+  ungroup() %>% 
+  ggplot(aes(x = year, y = rain_total)) +
+  geom_line(color = "blue")
+```
 
+### How has average yearly rainfall changed over time? 
 
+```{r}
+# By `water_year`
+clean_rain %>%
+  group_by(water_year, station_name) %>%
+  summarise(rain_total = sum(daily_rain)) %>% 
+  group_by(water_year) %>% 
+  summarise(rain_year_avg = mean(rain_total)) %>% 
+  ungroup() %>% 
+  ggplot(aes(x = water_year, y = rain_year_avg)) +
+  geom_line(color = "blue")
+```
 
+```{r}
+# By `year`
+clean_rain %>%
+  group_by(year, station_name) %>%
+  summarise(rain_total = sum(daily_rain)) %>% 
+  group_by(year) %>% 
+  summarise(rain_year_avg = mean(rain_total)) %>% 
+  ungroup() %>% 
+  ggplot(aes(x = year, y = rain_year_avg)) +
+  geom_line(color = "blue")
+```
+
+### What months and days does it rain the most?
+
+```{r}
+clean_rain %>% 
+  group_by(month, day) %>% 
+  summarise(avg_rain = mean(daily_rain)) %>% 
+  ungroup() %>% 
+  ggplot(aes(x = day, y = month, color = avg_rain)) +
+  geom_point() +
+  theme_minimal()
+  
+```
+
+## 2C. Answer Questions
+
+1. What have you learned about your data? Have any potentially interesting patterns emerged?
+
+By plotting the average daily rain by year, I was able to see that the average daily amount of rain, on days that it has rained, over the last 25 years, has decreased. This may be due to the fact that we have experienced several years of drought in Santa Barbara County over recent years, but more likely it is because rain gauge technology has gotten better in the last 25 years and smaller amounts of rain are now detectable when they may not have been in the past. I also noticed that all of the weather stations started in different years and some were started much more recently than others.  
+
+2. In HW #1, you outlined some questions that you wanted to answer using these data. Have you made any strides towards answering those questions? If yes, how so? If no, what next steps do you need to take (e.g. I need to create X plot type, I still need to track down Y data, I need to restructure existing data so that you can visualize it in Z ways, etc.)?
+
+I think that there are more interesting questions I could be asking than the ones I had in HW #1. I am now thinking it could be intersting to look at one extreme storm and look at how different that storm was across Santa Barbara County. It could also be interesting to see extreme storms across years to see if intensity of storms is increasing while overall rainfall is decreasing. I want to create a heatmap of rainfall across days and months, but in order to do this accurately I need to add data into my data set. I need there to be a zero for all years and days where no rain happened, otherwise the average for certain days and months will be higher than it should be. I might try to do it as average number of days of rain instead of average amount of rain.
+
+3. What challenges do you foresee encountering with your data? These can be data wrangling and / or visualization challenges.
+
+Since this data set only includes days that it rained it could be very easy to overestimate the amount it rained on average. I need to figure out a way to include all of the days it did not rain into my data set in order to make my visualizations more accurate.
 
 
 
