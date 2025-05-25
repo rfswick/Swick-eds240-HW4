@@ -1,0 +1,310 @@
+---
+title: "Clean Rain Data"
+author: "Rachel Swick"
+date: last-modified 
+format:
+  html:
+    embed-resources: true
+toc: true
+warning: false
+message: false
+eval: true
+echo: true
+code-fold: true
+fig-align: "center"
+editor_options: 
+  chunk_output_type: console
+---
+
+### Santa Barbara County Rain Data
+Available on the Santa Barbara County website under the Hydrology Section [SB Rain](https://www.countyofsb.org/2328/Daily-Rainfall-Data-XLS)
+```{r}
+# Load libraries
+library(tidyverse)
+library(showtext)
+library(readxl)
+library(janitor)
+library(plyr)
+library(measurements)
+library(dplyr)
+library(lubridate)
+```
+
+```{r}
+# List of files
+rain_files <- c(
+  "155dailys.xls",
+  "156dailys.xls",
+  "196dailys.xls",
+  "197dailys.xls",
+  "198dailys.xls",
+  "200dailys.xls",
+  "204dailys.xls",
+  "205dailys.xls",
+  "208dailys.xls",
+#  "210dailys.xls", Has one row with no data and it causes problems when running through the function
+  "211dailys.xls",
+  "212dailys.xls",
+  "218dailys.xls",
+  "220dailys.xls",
+  "221dailys.xls",
+  "226dailys.xls",
+  "227dailys.xls",
+  "228dailys.xls",
+  "229dailys.xls",
+  "230dailys.xls",
+  "231dailys.xls",
+  "232dailys.xls",
+  "233dailys.xls",
+  "234dailys.xls",
+  "236dailys.xls",
+  "237dailys.xls",
+  "238dailys.xls",
+  "242dailys.xls",
+  "249dailys.xls",
+  "251dailys.xls",
+  "252dailys.xls",
+  "255dailys.xls",
+  "256dailys.xls",
+  "259dailys.xls",
+  "262dailys.xls",
+  "270dailys.xls",
+  "275dailys.xls",
+  "276dailys.xls",
+  "280dailys.xls",
+  "285dailys.xls",
+  "290dailys.xls",
+  "300dailys.xls",
+  "301dailys.xls",
+  "304dailys.xls",
+  "309dailys.xls",
+  "314dailys.xls",
+  "317dailys.xls",
+  "321dailys.xls",
+  "325dailys.xls",
+  "326dailys.xls",
+  "328dailys.xls",
+  "332dailys.xls",
+  "334dailys.xls",
+  "335dailys.xls",
+  "336dailys.xls",
+  "347dailys.xls",
+  "349dailys.xls",
+  "352dailys.xls",
+  "353dailys.xls",
+  "356dailys.xls",
+  "359dailys.xls",
+  "361dailys.xls",
+  "369dailys.xls",
+  "380dailys.xls",
+  "383dailys.xls",
+  "387dailys.xls",
+  "389dailys.xls",
+  "391dailys.xls",
+  "393dailys.xls",
+  "398dailys.xls",
+  "402dailys.xls",
+  "408dailys.xls",
+  "411dailys.xls",
+  "415dailys.xls",
+  "419dailys.xls",
+  "421dailys.xls",
+  "429dailys.xls",
+  "436dailys.xls",
+  "438dailys.xls",
+  "439dailys.xls",
+  "440dailys.xls",
+  "470dailys.xls",
+  "473dailys.xls",
+  "474dailys.xls",
+  "477dailys.xls",
+  "565dailys.xls"
+)
+```
+
+```{r}
+# Function to read in and clean an individual rain data excel file
+clean_rain_gauge_data <- function(excel_file) {
+  # Generate file path
+  file_path <- here::here("data", excel_file)
+  
+  # Read in rain data, starting at row 9 of excel file
+  rain_data <- read_excel(path = file_path,
+                          col_names = TRUE,
+                          skip = 8)
+  
+  # Read metadata, first 8 rows, only column A
+  metadata <- read_excel(path = file_path, range = "A1:A8")
+  
+  # Normalize column names
+  rain_data <- rain_data %>%
+    clean_names() %>%
+    select(-"code")
+  
+  # Rename specific column names
+  rename_map <- c(
+    "stationid" = "station_id",
+    "wy" = "water_year",
+    "monthnum" = "month",
+    "dailyrain" = "daily_rain",
+    "daily_rainfall" = "daily_rain"
+  )
+  names(rain_data) <- mapvalues(
+    names(rain_data),
+    from = names(rename_map),
+    to = rename_map,
+    warn_missing = FALSE
+  )
+  
+  # Remove "WY" in some water_year columns
+  rain_data <- rain_data %>% 
+    mutate(water_year = as.integer(str_remove_all(water_year, pattern="WY")))
+    
+  
+  # Retrieve lat, long, and elevation from metadata
+  lat_row <- metadata %>%
+    pull(`County of Santa Barbara`) %>%
+    str_subset(pattern = "Lat")
+  
+  lat_long_elev <- str_split(lat_row, pattern = ",")[[1]]
+  
+  lat <- lat_long_elev %>%
+    str_subset(pattern = "Lat") %>%
+    str_remove(pattern = "Lat ") %>%
+    str_replace_all(pattern = "-", replacement = " ") %>%
+    conv_unit(from = "deg_min_sec", to = "dec_deg")
+  
+  long <- lat_long_elev %>%
+    str_subset(pattern = "Long") %>%
+    str_remove(pattern = "Long ") %>%
+    str_replace_all(pattern = "-", replacement = " ") %>%
+    str_replace(pattern = " ", replacement = "-") %>%
+    conv_unit(from = "deg_min_sec", to = "dec_deg")
+  
+  elevation <- lat_long_elev %>%
+    str_subset(pattern = "Elev") %>%
+    str_remove(pattern = "Elev ") %>%
+    str_remove(pattern = " ft") %>%
+    str_remove(pattern = " ")
+  
+  # Retrieve rain station number and name from metadata
+  station_row <- metadata %>%
+    pull(`County of Santa Barbara`) %>%
+    str_subset(pattern = "#")
+  
+  station_name <- str_split(station_row, pattern = " -")[[1]] %>%
+    str_subset(pattern = " ") %>%
+    str_remove(pattern = " ")
+  
+  # Add lat, long, elevation, station number, and station name to rain_data
+  rain_data <- rain_data %>%
+    mutate(
+      lat = lat,
+      long = long,
+      elevation = elevation,
+      station_name = station_name
+    )
+  
+  # Convert station_id to character and year to numeric
+  rain_data <- rain_data %>%
+    mutate(station_id = as.character(station_id), year = as.numeric(year))
+  
+  # If we leave the data as is, if we try to take monthly total or averages, it won't be accurate
+  # This data does not include days where it did not rain
+  # We need to add a row for every day it did not rain, with a daily_rain value of 0
+  
+  # Create a date column
+  rainfall_df <- rain_data %>%
+    mutate(date = make_date(year, month, day)) %>% 
+    filter(!is.na(date))
+  
+  # Get full date sequence from min to max date
+  all_dates <- tibble(date = seq.Date(min(rainfall_df$date), max(rainfall_df$date), by = "day")) %>%
+    mutate(
+      lat = lat,
+      long = long,
+      elevation = elevation,
+      station_name = station_name,
+      station_id = rain_data$station_id[1]
+    )
+  
+  # Join with the original data and fill daily rain NAs with 0
+  clean_rain <- all_dates %>%
+    left_join(rainfall_df,
+              by = c(
+                "date",
+                "lat",
+                "long",
+                "elevation",
+                "station_id",
+                "station_name"
+              )) %>%
+    mutate(
+      year = year(date),
+      month = month(date),
+      day = day(date),
+      water_year = if_else(month(date) >= 10, year(date) + 1, year(date)),
+      daily_rain = replace_na(daily_rain, 0)
+    ) %>%
+    select(
+      station_id,
+      station_name,
+      water_year,
+      date,
+      year,
+      month,
+      day,
+      daily_rain,
+      elevation,
+      lat,
+      long
+    )
+  
+  return(clean_rain)
+}
+
+```
+
+
+```{r}
+# Function to process a list of files and append them to a single DataFrame
+concat_rain_data <- function(file_list) {
+  # Initialize an empty DataFrame
+  rain_data = tibble()
+  
+  # For each file, clean the data and add to rain_data
+  for (file in file_list){
+    cleaned = clean_rain_gauge_data(file)
+    rain_data = rbind(rain_data, cleaned)
+  }
+  
+  return(rain_data)
+}
+
+clean_rain_data <- concat_rain_data(rain_files)
+```
+
+
+```{r}
+write_csv(clean_rain_data, here::here("data", "clean_rain_data.csv"))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
