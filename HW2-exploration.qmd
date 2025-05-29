@@ -26,6 +26,7 @@ library(usmap)
 library(mapdata)
 library(waffle)
 library(showtext)
+library(dplyr)
 ```
 
 ```{r}
@@ -92,13 +93,48 @@ station_rain <- clean_rain %>%
 ### Can we see different rain fall patterns at different stations? Does it rain more at one station than others?
 
 ```{r}
-clean_rain %>%
-  group_by(year, station_name) %>%
-  summarise(rain_total = sum(daily_rain)) %>% 
-  ggplot(aes(x = year, y = rain_total, by = station_name)) +
+clean_rain_data %>%
+  group_by(year, station_name) %>% 
+  dplyr::summarise(rain_total = sum(daily_rain), .groups = "drop") %>% 
+  ggplot(aes(x = year, y = rain_total, group = station_name)) +
   geom_line(color = "blue") +
   gghighlight::gghighlight(station_name == "San Marcos Pass")
+  
+clean_rain_data %>%
+  mutate(year = as.numeric(year)) %>% 
+  group_by(year, station_name) %>% 
+  summarise(rain_total = sum(daily_rain), .groups = "drop")
+  ggplot(aes(x = year, y = rain_total, group = station_name)) +
+  geom_line(color = "blue")
     
+clean_rain_data %>% 
+  filter(station_name == "San Marcos Pass") %>% 
+  ggplot(aes(x=year, y=daily_rain, by = station_name)) +
+  geom_line()
+
+clean_rain_data <- clean_rain_data %>%
+  mutate(rain_year = lubridate::year(date))
+clean_rain_data %>%
+  count(rain_year) %>%
+  nrow()
+
+year
+
+clean_rain_data %>%
+  distinct(rain_year, station_name) %>%
+  tally()
+
+clean_rain_data %>%
+  group_by(rain_year, station_name) %>%
+  dplyr::summarise(rain_total = sum(daily_rain))
+
+clean_rain_data %>%
+  group_by(rain_year, station_name) %>%
+  dplyr::summarise(
+    rain_total = sum(daily_rain),
+    count = n(),
+    .groups = "drop"
+  )
 ```
 ### On days that it rains, how much rain falls on average?
 
@@ -115,11 +151,11 @@ clean_rain %>%
 
 ```{r}
 # By `water_year`
-clean_rain %>%
+clean_rain_data %>%
   group_by(water_year, station_name) %>%
-  summarise(rain_total = sum(daily_rain)) %>% 
+  dplyr::summarise(rain_total = sum(daily_rain)) %>%  
   group_by(water_year) %>% 
-  summarise(rain_year_avg = mean(rain_total)) %>% 
+  dplyr::summarise(rain_year_avg = mean(rain_total)) %>% 
   ungroup() %>% 
   ggplot(aes(x = water_year, y = rain_year_avg)) +
   geom_line(color = "blue")
@@ -140,13 +176,14 @@ clean_rain %>%
 ### What months and days does it rain the most?
 
 ```{r}
-clean_rain %>% 
+clean_rain_data %>% 
   group_by(month, day) %>% 
-  summarise(avg_rain = mean(daily_rain)) %>% 
+  dplyr::summarise(avg_rain = mean(daily_rain)) %>% 
   ungroup() %>% 
   ggplot(aes(x = day, y = month, color = avg_rain)) +
   geom_point() +
-  theme_minimal()
+  theme_minimal() +
+  scale_color_viridis_c(option = "magma", direction = -1) 
   
 ```
 
