@@ -24,14 +24,13 @@ library(tidyverse)
 library(showtext)
 library(readxl)
 library(janitor)
-library(plyr)
 library(measurements)
 library(dplyr)
 library(lubridate)
 ```
 
 ```{r}
-# List of files
+# List of rain files
 rain_files <- c(
   "155dailys.xls",
   "156dailys.xls",
@@ -149,7 +148,7 @@ clean_rain_gauge_data <- function(excel_file) {
     "dailyrain" = "daily_rain",
     "daily_rainfall" = "daily_rain"
   )
-  names(rain_data) <- mapvalues(
+  names(rain_data) <- plyr::mapvalues(
     names(rain_data),
     from = names(rename_map),
     to = rename_map,
@@ -159,7 +158,6 @@ clean_rain_gauge_data <- function(excel_file) {
   # Remove "WY" in some water_year columns
   rain_data <- rain_data %>% 
     mutate(water_year = as.integer(str_remove_all(water_year, pattern="WY")))
-    
   
   # Retrieve lat, long, and elevation from metadata
   lat_row <- metadata %>%
@@ -172,6 +170,7 @@ clean_rain_gauge_data <- function(excel_file) {
     str_subset(pattern = "Lat") %>%
     str_remove(pattern = "Lat ") %>%
     str_replace_all(pattern = "-", replacement = " ") %>%
+    # Convert from degrees-minutes-seconds to decimal degrees
     conv_unit(from = "deg_min_sec", to = "dec_deg")
   
   long <- lat_long_elev %>%
@@ -179,6 +178,7 @@ clean_rain_gauge_data <- function(excel_file) {
     str_remove(pattern = "Long ") %>%
     str_replace_all(pattern = "-", replacement = " ") %>%
     str_replace(pattern = " ", replacement = "-") %>%
+    # Convert from degrees-minutes-seconds to decimal degrees
     conv_unit(from = "deg_min_sec", to = "dec_deg")
   
   elevation <- lat_long_elev %>%
@@ -187,22 +187,25 @@ clean_rain_gauge_data <- function(excel_file) {
     str_remove(pattern = " ft") %>%
     str_remove(pattern = " ")
   
-  # Retrieve rain station number and name from metadata
+  # Retrieve rain station name from metadata
   station_row <- metadata %>%
-    pull(`County of Santa Barbara`) %>%
-    str_subset(pattern = "#")
+    pull(1) %>%
+    str_subset(pattern = "#") %>% 
+    first()
   
-  station_name <- str_split(station_row, pattern = " -")[[1]] %>%
-    str_subset(pattern = " ") %>%
-    str_remove(pattern = " ")
+  station_name <- station_row %>% 
+    str_split(pattern = " -") %>%
+    unlist() %>% 
+    str_trim() %>% 
+    .[2]
   
-  # Add lat, long, elevation, station number, and station name to rain_data
+  # Add lat, long, elevation, and station name to rain_data
   rain_data <- rain_data %>%
     mutate(
-      lat = lat,
-      long = long,
-      elevation = elevation,
-      station_name = station_name
+      lat = lat[1],
+      long = long[1],
+      elevation = elevation[1],
+      station_name = station_name[1]
     )
   
   # Convert station_id to character and year to numeric
@@ -243,6 +246,7 @@ clean_rain_gauge_data <- function(excel_file) {
       year = year(date),
       month = month(date),
       day = day(date),
+      # Water year starts October 1 of the previous year and runs until September 30 of the next year
       water_year = if_else(month(date) >= 10, year(date) + 1, year(date)),
       daily_rain = replace_na(daily_rain, 0)
     ) %>%
@@ -258,7 +262,7 @@ clean_rain_gauge_data <- function(excel_file) {
       elevation,
       lat,
       long
-    )
+    ) 
   
   return(clean_rain)
 }
@@ -270,12 +274,12 @@ clean_rain_gauge_data <- function(excel_file) {
 # Function to process a list of files and append them to a single DataFrame
 concat_rain_data <- function(file_list) {
   # Initialize an empty DataFrame
-  rain_data = tibble()
+  rain_data = data.frame()
   
   # For each file, clean the data and add to rain_data
   for (file in file_list){
     cleaned = clean_rain_gauge_data(file)
-    rain_data = rbind(rain_data, cleaned)
+    rain_data = bind_rows(rain_data, cleaned)
   }
   
   return(rain_data)

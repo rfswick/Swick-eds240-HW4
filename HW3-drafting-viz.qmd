@@ -31,7 +31,17 @@ HW #3 will have you focus on making more progress towards completing your final 
 1. I plan to pursue Option 1.
 
 2. Main Question: How does rain fall in Santa Barbara County?
-  - The main question has stayed the same since homework 1 but the subquestions have morphed as I play with the data and how I can visualize it.
+  - The main question has stayed the same since homework 1 but the sub-questions have morphed as I play with the data and how I can visualize it. I want to set up my infographic so that each of my graphs within my infographic answers a different question about how rain has changed in Santa Barbara County over time.
+    1) During what months and days of the year does it rain the most in Santa Barbara County?
+    2) How have periods of drought changed over the course of the last 100 years? Are droughts just as common but they last longer, or are they also more frequent? General plan for how to answer this question:
+        Take the sum of rain by year, averaged across gauges. Then take the average total rain per year. Create a new column with amount of rain above or below the historic average.
+    3) How does amount of rainfall differ between different elevation ranges? Is this trend the same in the 20th and 21st centuries? General plan for how to answer this question:
+        Put rain gauge elevations into 3 bins based on maximum and minimum elevations over all rain gauges. 
+
+    
+3.
+
+
 
 
 
